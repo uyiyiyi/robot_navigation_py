@@ -7,27 +7,39 @@ wheel_base = 0.15  # 车轮间距（米）
 max_speed = 1.0    # 最大速度（米/秒）
 target_point_index = 1
 
-def get_target_index(robot_pos, path):
+def get_target_index(robot_pos, path, reset):
     lookahead_distance = 20  # 前视距离（像素）
     global target_point_index
-    for i in range(target_point_index, path.shape[0]-1):
-        dx1 = path[i][0] - robot_pos[0]
-        dy1 = path[i][1] - robot_pos[1]
-        dist1 = np.sqrt(dx1 * dx1 + dy1 * dy1)
+    if reset:
+        target_point_index = 1
 
-        dx2 = path[i+1][0] - robot_pos[0]
-        dy2 = path[i+1][1] - robot_pos[1]
-        dist2 = np.sqrt(dx2 * dx2 + dy2 * dy2)
+    # 获取机器人当前位置
+    robot_x, robot_y = robot_pos[:2]
 
-        print("i = ", i)        
-        print("dist1: ", dist1)
-        print("dist2: ", dist2)
+    # 路径点到机器人的距离
+    distances = np.sqrt((path[:, 0] - robot_x)**2 + (path[:, 1] - robot_y)**2)
+
+    # 1. 路径点全部在前瞻距离以内
+    if np.all(distances < lookahead_distance):
+        # 如果所有路径点都在前瞻距离以内，则选择最后一个点为目标点
+        return len(path) - 1
+
+    # 2. 路径点全部在前瞻距离以外
+    if np.all(distances > lookahead_distance):
+        # 如果所有路径点都在前瞻距离以外，则选择第一个点为目标点
+        return 1
+
+    # 3. 标准的 pure pursuit 逻辑：寻找路径上满足条件的点
+    for i in range(target_point_index, path.shape[0] - 1):
+        dist1 = distances[i]
+        dist2 = distances[i + 1]
+
+        # 检查是否找到前瞻距离范围内的目标点
         if dist1 < lookahead_distance and lookahead_distance < dist2:
-            print("return")
-            target_point_index = i
-            return target_point_index
-    # target_point_index = 1
-    return target_point_index
+            return i
+
+    # 如果没有找到，返回路径上的最后一个点
+    return len(path) - 1
 
 def get_target_state(path, index):
     if index < path.shape[0] - 1:
@@ -48,8 +60,8 @@ def get_target_state(path, index):
         return [path[index][0], path[index][1], angle]
 
 def compute_vel(robot_state, target_state):
-    print("robot_state: ", robot_state)
-    print("target_state: ", target_state)
+    # print("robot_state: ", robot_state)
+    # print("target_state: ", target_state)
     x1, y1 = robot_state[:2]
     x2, y2 = target_state[:2]
     dx, dy = x2 - x1, y2 - y1
@@ -59,15 +71,16 @@ def compute_vel(robot_state, target_state):
     delta_x = target_state[0] - robot_state[0]
     delta_y = target_state[1] - robot_state[1]
     angle = -atan2(delta_y, delta_x)
-    print("angle: ", angle)
+    # print("angle: ", angle)
     alpha = angle - robot_state[2]
-    r = 0.5 * ld / abs(sin(alpha))
-    v = map_radius_to_speed(r)
+    r = 0.5 * ld / sin(alpha)
+    abs_r = 0.5 * ld / abs(sin(alpha))
+    v = map_radius_to_speed(abs_r)
     w = v / r
     # print("r: ", r)
     return v, w
 
-def map_radius_to_speed(radius, r_min=0, r_max=50, v_min=5, v_max=10):
+def map_radius_to_speed(radius, r_min=0, r_max=50, v_min=2, v_max=20):
     if radius < r_min:
         radius = r_min
     elif radius > r_max:

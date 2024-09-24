@@ -28,7 +28,8 @@ def on_click(event):
 
         # 停止当前A*算法
         if a_star_thread is not None and a_star_thread.is_alive():
-            stop_a_star.set()  # 终止A*算法线程
+            print("正在终止旧的A*线程...")
+            stop_a_star.set()  # 通知旧的线程停止
 
         # 清除终止标志，并重新启动A*线程
         stop_a_star.clear()
@@ -39,10 +40,12 @@ def on_click(event):
 def run_a_star():
     dt = 0.1
     global goal_point, stop_a_star, robot_pos
-    start_point = (61, 473)  # 起始点
+    start_point = tuple(np.floor(robot_pos[:2]).astype(int))
     print(f"起始点: {start_point}, 终点: {goal_point}")
     path = a_star(map_img, start_point, goal_point, stop_a_star)[1:]
+    reset = True
     if path:
+        # target_point_index = 1  # 重置局部目标点索引
         smooth_path = smooth_path_with_bspline(path, 100)  # 平滑路径
         # print(smooth_path)
         # print(smooth_path.shape[0])
@@ -53,12 +56,14 @@ def run_a_star():
         robot_y = robot_pos[1]
         heading = robot_pos[2]
         while not reached:
-            target_index = get_target_index(robot_pos, smooth_path)
-            print("target_index: ", target_index)
+            target_index = get_target_index(robot_pos, smooth_path, reset)
+            reset = False
+            print(f"线程 {threading.current_thread().name} - target_index: {target_index}")
+            # print("target_index: ", target_index)
             target_state = get_target_state(smooth_path, target_index)
             # print("target_state: ", target_state)
             v, w = compute_vel(robot_pos, target_state)
-            print("v, w: ", v , w)
+            # print("v, w: ", v , w)
             heading = heading + w * dt
             robot_x = robot_pos[0] + v * dt * np.cos(heading)
             robot_y = robot_pos[1] - v * dt * np.sin(heading)
@@ -73,15 +78,15 @@ def run_a_star():
             dy = - arrow_length * np.sin(robot_pos[2])  # y 分量
             # 使用 plt.arrow 绘制朝向箭头
             arrow = plt.arrow(robot_pos[0], robot_pos[1], dx, dy, head_width=5, head_length=10, fc='red', ec='red')
-            # target_point = plt.scatter(target_state[0], target_state[1], color='orange', label="Local Target")  # 目标点
+            target_point = plt.scatter(target_state[0], target_state[1], color='orange', label="Local Target")  # 目标点
             robot_circle = plt.Circle(robot_pos[:2], 20, color='green', fill=False)
             ax.add_artist(robot_circle)
             plt.legend()
             plt.draw()
             plt.pause(0.2)
             time.sleep(0.2)
-            # target_point.remove()
-            robot_point.remove()
+            target_point.remove()
+            # robot_point.remove()
             arrow.remove()
             robot_circle.remove()
             plt.draw()
