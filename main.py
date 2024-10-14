@@ -55,6 +55,7 @@ def run_a_star():
         robot_x = robot_pos[0]
         robot_y = robot_pos[1]
         heading = robot_pos[2]
+        reached = False
         while not reached:
             target_index = get_target_index(robot_pos, smooth_path, reset)
             reset = False
@@ -68,10 +69,12 @@ def run_a_star():
             robot_x = robot_pos[0] + v * dt * np.cos(heading)
             robot_y = robot_pos[1] - v * dt * np.sin(heading)
             robot_pos = [robot_x, robot_y, heading]
+            if np.linalg.norm(np.array(goal_point) - np.array(robot_pos[0:2])) < 4:
+                reached = True
             # print("robot_pos: ", robot_pos)
             # 可视化机器人和目标点
             # print("可视化机器人和目标点")
-            robot_point = plt.scatter(*robot_pos[:2], color='blue', label="Robot Pos")  # 机器人
+            robot_point = plt.scatter(*robot_pos[:2], color='blue')  # 机器人
             # 计算箭头的方向分量
             arrow_length = 20  # 箭头的长度，可以根据需求调整
             dx = arrow_length * np.cos(robot_pos[2])  # x 分量
@@ -83,8 +86,8 @@ def run_a_star():
             ax.add_artist(robot_circle)
             plt.legend()
             plt.draw()
-            plt.pause(0.2)
-            time.sleep(0.2)
+            plt.pause(0.001)
+            time.sleep(0.001)
             target_point.remove()
             # robot_point.remove()
             arrow.remove()

@@ -80,7 +80,7 @@ def compute_vel(robot_state, target_state):
     # print("r: ", r)
     return v, w
 
-def map_radius_to_speed(radius, r_min=0, r_max=50, v_min=2, v_max=20):
+def map_radius_to_speed(radius, r_min=0, r_max=50, v_min=1, v_max=20):
     if radius < r_min:
         radius = r_min
     elif radius > r_max:
